@@ -52,3 +52,7 @@ coverage.xml
 # Sphinx documentation
 docs/_build/
 
+# For some temporary data
+data/
+result
+*.txt
