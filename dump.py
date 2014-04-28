@@ -8,9 +8,14 @@ import sys
 import time
 import urllib.request
 
+reviews_per_member = 300
+max_member_cnt = 300
+city_id = 1     # For Shanghai
+shop_type = 10  # For only food
+
 
 def get_html(url: str):
-    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; WOW64; rv:23.0) Gecko/20100101 Firefox/23.0'}
+    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 6.1; WOW64; rv:23.0) Gecko/20100101 Firefox/23.0"}
     #headers = {"User-Agent": "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:28.0) Gecko/20100101 Firefox/28.0"}
     req = urllib.request.Request(url=url, headers=headers)
     try:
@@ -25,7 +30,7 @@ def get_html(url: str):
 
 def get_memberlist_url(page: int):
     return """http://www.dianping.com/memberlist/%(city_id)d?pg=%(page)d""" % {
-        "city_id": 1,    # For only Shanghai
+        "city_id": city_id,
         "page": page
     }
 
@@ -38,11 +43,24 @@ def get_homepage_url(member_id: str):
 
 def get_review_url(member_url: str, page: int):
     return """%(member_url)s/reviews?pg=%(page)d&reviewCityId=%(city_id)d&reviewShopType=%(shop_type)d&c=1&shopTypeIndex=1""" % {
-        "city_id": 1,       # For only Shanghai
+        "city_id": city_id,
         "member_url": member_url,
         "page": page,
-        "shop_type": 10,    # For only food
+        "shop_type": shop_type,
     }
+
+
+def get_member_list_page_num(member_list_page_url: str):
+    member_list_page = get_html(member_list_page_url)
+    member_list_page_soup = bs4.BeautifulSoup(member_list_page)
+    html_body = member_list_page_soup.body
+    main_w = html_body.find("div", attrs={"class": "main_w"})
+    content_a = main_w.find("div", attrs={"class": "content_a"})
+    member_rank = content_a.find("div", attrs={"class": "box memberRank"})
+    pages = member_rank.find("div", attrs={"class": "Pages"})
+    page_nums = pages.find_all("a", attrs={"class": "PageLink", "title": True, "data-pg": True, "href": True})
+    max_page_num = max(map(lambda a: int(a["title"]), page_nums))
+    return max_page_num
 
 
 def parser_member_url(member_list_url: str):
@@ -75,7 +93,7 @@ def parser_review(member_url: str):
     review_pages_num = review_modebox.find("div", attrs={"class": "pages-num"})
     review_total_page = max(map(lambda a: int(a["data-pg"]),
                                 review_pages_num.find_all("a", attrs={"data-pg": True})))
-    comments = []
+    reviews = []
     for page_num in range(1, review_total_page + 1):
         print("page_num = %d" % page_num)
         review_url = get_review_url(member_url, page_num)
@@ -119,14 +137,14 @@ def parser_review(member_url: str):
                     service = int(spans[idx + 2].getText()[3])
                 except ValueError:
                     pass
-                comments.append([shop_id, member_id, rank, taste, environment, service])
-                if len(comments) == 300:
+                reviews.append([shop_id, member_id, rank, taste, environment, service])
+                if len(reviews) == reviews_per_member:
                     break
             except AttributeError:
                 pass
-        if len(comments) == 300:
+        if len(reviews) == reviews_per_member:
             break
-    return comments
+    return reviews
 
 
 if __name__ == "__main__":
@@ -136,7 +154,9 @@ if __name__ == "__main__":
     elif not os.path.isdir("data"):
         print("Error: Cannot create directory \'data/\'.", file=sys.stderr)
         exit(-1)
-    for i in range(1, 7):
+    member_list_page_num = get_member_list_page_num(get_memberlist_url(1))
+    print(member_list_page_num)
+    for i in range(1, member_list_page_num + 1):
         member_list_url = get_memberlist_url(i)
         member_list = parser_member_url(member_list_url)
         for member in member_list:
@@ -149,7 +169,7 @@ if __name__ == "__main__":
             pickle.dump(member_review, dump_file)
             dump_file.close()
             time.sleep(5)
-            if member_cnt == 300:
+            if member_cnt == max_member_cnt:
                 break
-        if member_cnt == 300:
+        if member_cnt == max_member_cnt:
             break
