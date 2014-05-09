@@ -15,8 +15,8 @@ shop_type = 10  # For only food
 
 
 def get_html(url: str):
-    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 6.1; WOW64; rv:23.0) Gecko/20100101 Firefox/23.0"}
-    #headers = {"User-Agent": "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:28.0) Gecko/20100101 Firefox/28.0"}
+    #headers = {"User-Agent": "Mozilla/5.0 (Windows NT 6.1; WOW64; rv:23.0) Gecko/20100101 Firefox/23.0"}
+    headers = {"User-Agent": "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:28.0) Gecko/20100101 Firefox/28.0"}
     req = urllib.request.Request(url=url, headers=headers)
     try:
         response = urllib.request.urlopen(req)
@@ -59,7 +59,7 @@ def get_member_list_page_num(member_list_page_url: str):
     member_rank = content_a.find("div", attrs={"class": "box memberRank"})
     pages = member_rank.find("div", attrs={"class": "Pages"})
     page_nums = pages.find_all("a", attrs={"class": "PageLink", "title": True, "data-pg": True, "href": True})
-    max_page_num = max(map(lambda a: int(a["title"]), page_nums))
+    max_page_num = max([int(a["title"]) for a in page_nums])
     return max_page_num
 
 
@@ -73,9 +73,8 @@ def parser_member_url(member_list_url: str):
     member_table = member_rank.find("table", attrs={"class": "rankTable"})
     member_table_body = member_table.tbody
     member_list = member_table_body.find_all("tr")[1:]
-    member_id = list(map(lambda m: m.find_all("td")[-1].a["data-userid"],
-                         member_list))
-    member_homepage_url = list(map(get_homepage_url, member_id))
+    member_id = [m.find_all("td")[-1].a["data-userid"] for m in member_list]
+    member_homepage_url = [get_homepage_url(id) for id in member_id]
     return member_homepage_url
 
 
@@ -91,8 +90,7 @@ def parser_review(member_url: str):
     review_main = review_container.find("div", attrs={"class": "main"})
     review_modebox = review_main.find("div", attrs={"class": "modebox comm-list", "id": "J_review"})
     review_pages_num = review_modebox.find("div", attrs={"class": "pages-num"})
-    review_total_page = max(map(lambda a: int(a["data-pg"]),
-                                review_pages_num.find_all("a", attrs={"data-pg": True})))
+    review_total_page = max([int(a["data-pg"]) for a in review_pages_num.find_all("a", attrs={"data-pg": True})])
     reviews = []
     for page_num in range(1, review_total_page + 1):
         print("page_num = %d" % page_num)
